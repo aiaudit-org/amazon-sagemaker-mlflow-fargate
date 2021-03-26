@@ -44,15 +44,20 @@ class DeploymentStack(core.Stack):
             secret_name='dbPassword',
             generate_secret_string=sm.SecretStringGenerator(password_length=20, exclude_punctuation=True)
         )
+        
 
         # ==================================================
         # ==================== VPC =========================
         # ==================================================
         public_subnet = ec2.SubnetConfiguration(name='Public', subnet_type=ec2.SubnetType.PUBLIC, cidr_mask=28)
+        #dev-shared-public-subnet-az1
         private_subnet = ec2.SubnetConfiguration(name='Private', subnet_type=ec2.SubnetType.PRIVATE, cidr_mask=28)
-        isolated_subnet = ec2.SubnetConfiguration(name='DB', subnet_type=ec2.SubnetType.ISOLATED, cidr_mask=28)
+        #dev-shared-private-subnet-az1
+        isolated_subnet = ec2.SubnetConfiguration(name='DB', subnet_type=ec2.SubnetType.ISOLATED, cidr_mask=28) 
+        #dev-shared-private-subnet-az1
 
-        vpc = ec2.Vpc(
+        #use existing (is needed later for fargete)
+        """ vpc = ec2.Vpc(
             scope=self,
             id='VPC',
             cidr='10.0.0.0/24',
@@ -60,7 +65,12 @@ class DeploymentStack(core.Stack):
             nat_gateway_provider=ec2.NatProvider.gateway(),
             nat_gateways=1,
             subnet_configuration=[public_subnet, private_subnet, isolated_subnet]
-        )
+        ) """
+        vpc = ec2.Vpc.from_lookup(stack, "VPC",
+            vpc_id = "vpc-03076add1b1efca31"
+        ) #TODO: fill in correct arguments
+
+        #leave, should be fine, if not check (is nto NAT gateway)
         vpc.add_gateway_endpoint('S3Endpoint', service=ec2.GatewayVpcEndpointAwsService.S3)
         # ==================================================
         # ================= S3 BUCKET ======================
@@ -91,7 +101,7 @@ class DeploymentStack(core.Stack):
             instance_type=ec2.InstanceType.of(ec2.InstanceClass.BURSTABLE2, ec2.InstanceSize.SMALL),
             vpc=vpc,
             security_groups=[sg_rds],
-            vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.ISOLATED),
+            vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.ISOLATED), #TODO: check if you need to select private here and how
             # multi_az=True,
             removal_policy=core.RemovalPolicy.DESTROY,
             deletion_protection=False
@@ -99,6 +109,7 @@ class DeploymentStack(core.Stack):
         # ==================================================
         # =============== FARGATE SERVICE ==================
         # ==================================================
+        
         cluster = ecs.Cluster(scope=self, id='CLUSTER', cluster_name=cluster_name, vpc=vpc)
 
         task_definition = ecs.FargateTaskDefinition(
