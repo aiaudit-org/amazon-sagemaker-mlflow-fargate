@@ -1,0 +1,18 @@
+track changes
+
+
+look up vpc
+vpc = ec2.Vpc.from_lookup(self, "VPC",
+            vpc_id = "vpc-03076add1b1efca31" #is_default=True
+        )
+
+pass env info for self above
+env={
+    'account': "601883093460", 
+    'region': "eu-central-1"
+    } 
+
+
+change ISOLATED to PRIVATE
+
+insert vpc ip

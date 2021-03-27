@@ -49,11 +49,11 @@ class DeploymentStack(core.Stack):
         # ==================================================
         # ==================== VPC =========================
         # ==================================================
-        public_subnet = ec2.SubnetConfiguration(name='Public', subnet_type=ec2.SubnetType.PUBLIC, cidr_mask=28)
+        #public_subnet = ec2.SubnetConfiguration(name='Public', subnet_type=ec2.SubnetType.PUBLIC, cidr_mask=28)
         #dev-shared-public-subnet-az1
-        private_subnet = ec2.SubnetConfiguration(name='Private', subnet_type=ec2.SubnetType.PRIVATE, cidr_mask=28)
+        #private_subnet = ec2.SubnetConfiguration(name='Private', subnet_type=ec2.SubnetType.PRIVATE, cidr_mask=28)
         #dev-shared-private-subnet-az1
-        isolated_subnet = ec2.SubnetConfiguration(name='DB', subnet_type=ec2.SubnetType.ISOLATED, cidr_mask=28) 
+        #isolated_subnet = ec2.SubnetConfiguration(name='DB', subnet_type=ec2.SubnetType.ISOLATED, cidr_mask=28) 
         #dev-shared-private-subnet-az1
 
         #use existing (is needed later for fargete)
@@ -66,12 +66,19 @@ class DeploymentStack(core.Stack):
             nat_gateways=1,
             subnet_configuration=[public_subnet, private_subnet, isolated_subnet]
         ) """
-        vpc = ec2.Vpc.from_lookup(stack, "VPC",
-            vpc_id = "vpc-03076add1b1efca31"
+
+        """ stack = MyStack(
+            app, "MyStack", env=Environment(account="account_id", region="region")
+        ) """
+
+        vpc = ec2.Vpc.from_lookup(self, "VPC",
+            vpc_id = "vpc-03076add1b1efca31" #is_default=True
         ) #TODO: fill in correct arguments
+        #vpc_id = "vpc-03076add1b1efca31"
 
         #leave, should be fine, if not check (is nto NAT gateway)
-        vpc.add_gateway_endpoint('S3Endpoint', service=ec2.GatewayVpcEndpointAwsService.S3)
+
+        #original: vpc.add_gateway_endpoint('S3Endpoint', service=ec2.GatewayVpcEndpointAwsService.S3)
         # ==================================================
         # ================= S3 BUCKET ======================
         # ==================================================
@@ -89,7 +96,9 @@ class DeploymentStack(core.Stack):
         # Creates a security group for AWS RDS
         sg_rds = ec2.SecurityGroup(scope=self, id='SGRDS', vpc=vpc, security_group_name='sg_rds')
         # Adds an ingress rule which allows resources in the VPC's CIDR to access the database.
-        sg_rds.add_ingress_rule(peer=ec2.Peer.ipv4('10.0.0.0/24'), connection=ec2.Port.tcp(port))
+        #original: sg_rds.add_ingress_rule(peer=ec2.Peer.ipv4('10.0.0.0/24'), connection=ec2.Port.tcp(port))
+        sg_rds.add_ingress_rule(peer=ec2.Peer.ipv4('10.206.192.0/19'), connection=ec2.Port.tcp(port))
+        #10.206.192.0/19
 
         database = rds.DatabaseInstance(
             scope=self,
@@ -101,7 +110,8 @@ class DeploymentStack(core.Stack):
             instance_type=ec2.InstanceType.of(ec2.InstanceClass.BURSTABLE2, ec2.InstanceSize.SMALL),
             vpc=vpc,
             security_groups=[sg_rds],
-            vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.ISOLATED), #TODO: check if you need to select private here and how
+            #vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.ISOLATED),
+            vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE), #TODO: check if you need to select private here and how
             # multi_az=True,
             removal_policy=core.RemovalPolicy.DESTROY,
             deletion_protection=False
@@ -169,5 +179,10 @@ class DeploymentStack(core.Stack):
 
 
 app = core.App()
-DeploymentStack(app, "DeploymentStack")
+DeploymentStack(app, "DeploymentStack",
+    env={
+    'account': "601883093460", 
+    'region': "eu-central-1"
+    } 
+)
 app.synth()
